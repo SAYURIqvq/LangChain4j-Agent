@@ -1,11 +1,11 @@
 # LangChain4j-agent
 
-## 项目概览
+## 什么是 LangChain4j-Agent？
 
-基于 **Java + Spring Boot + LangChain4j** 构建的企业级智能 Agent 系统，通过深度整合 **RAG、MCP 协议、分布式记忆与工具调用能力**，构建具备 **感知、记忆、规划、行动** 四大核心能力的智能体。
+LangChain4j-Agent 是一个全栈对话式 AI 平台，其功能远超简单的聊天机器人。它的核心使命是解决企业中两个长期存在的痛点：知识孤岛（专有信息散落在互不关联的文档中）和工作流自动化程度低（人工手动执行本可委托给智能 Agent 处理的重复性任务）。该系统将 RAG（检索增强生成）、MCP（模型上下文协议）工具集成、分布式会话记忆、多 Agent 编排以及全生命周期可观测性整合到一个可部署的 Spring Boot 应用中。
 
-**技术栈：**
-Spring Boot 3.5.9 ｜ JDK 17 ｜ LangChain4j 1.1.0 ｜ Alibaba Qwen ｜ PgVector ｜ Redis 8.4.0 ｜ Prometheus + Grafana ｜ Docker
+概言之，该系统能够基于你的私有文档回答问题、代你发送邮件、告知当前时间、在对话过程中动态学习新知识，并实时流式输出响应，同时确保每个用户的会话相互隔离，且所有操作均受到监控。
+
 
 ---
 
@@ -73,6 +73,8 @@ Spring Boot 3.5.9 ｜ JDK 17 ｜ LangChain4j 1.1.0 ｜ Alibaba Qwen ｜ PgVector
 
 
 ## 项目预览
+
+系统除了提供 REST API 外，还提供了一个基于 Web 的聊天界面。以下是终端用户交互的界面：
 
 ![img.png](image/img.png)
 ![img_1.png](image/img_1.png)
@@ -462,35 +464,61 @@ TokenCountChatMemoryCompressor.compress()
 
 ---
 
-## 六、关键技术特性总结
+##项目架构
 
-### 1. 分布式架构
-- Redis 实现会话隔离与分布式锁
-- 支持多实例部署，无状态服务设计
+```
+src/main/java/com/shanyangcode/infintechatagent/
+├── InfiniteChatAgentApplication.java   ├── ai/                                  # AI 服务接口与代理装配
+│   ├── AiChat.java                      #   @InputGuardrails, @SystemMessage, @MemoryId
+│   └── AiChatService.java               #   AiServices.builder() — 核心装配中心
+├── agent/                               # 多 Agent 抽象
+│   ├── Agent.java                       #   接口：execute(), getAgentName()
+│   ├── KnowledgeAgent.java              #   基于 RAG 的知识检索
+│   └── ReasoningAgent.java              #   通用对话推理
+├── orchestrator/                        # Agent 协调
+│   └── SimpleOrchestrator.java          #   基于关键字路由至知识/推理 Agent
+├── config/                              # Spring 配置 Bean
+│   ├── RagConfig.java                   #   EmbeddingStoreIngestor, ContentRetriever
+│   ├── ChatMemoryConfig.java            #   压缩阈值, Redis 锁参数
+│   ├── McpToolConfig.java               #   MCP 工具提供者 (StdioServerTransport)
+│   ├── RedisChatMemoryStoreConfig.java  #   Redis 连接与 TTL
+│   ├── EmbeddingStoreConfig.java        #   PgVector 向量存储
+│   └── DashScopeModelConfig.java        #   DashScope 模型默认配置
+├── rag/                                 # RAG 流水线组件
+│   ├── ReRankingContentRetriever.java   #   两阶段检索 + 重排序及指标收集
+│   ├── QwenRerankClient.java            #   DashScope 重排序 API 客户端
+│   ├── QueryPreprocessor.java           #   停用词移除与查询清理
+│   ├── RecursiveDocumentSplitter.java   #   文档分块策略
+│   └── RerankVerifier.java              #   启动时的重排序健康检查
+├── memory/                              # 记忆压缩与存储
+│   ├── CompressibleChatMemory.java      #   感知 Token 的记忆及 Redis 分布式锁
+│   └── TokenCountChatMemoryCompressor.java  #   由 LLM 驱动的对话摘要
+├── tool/                                # Agent 可调用工具 (@Tool 注解)
+│   ├── RagTool.java                     #   知识检索与动态摄入
+│   ├── EmailTool.java                   #   通过 JavaMailSender 发送邮件
+│   └── TimeTool.java                    #   查询当前时间 (Asia/Shanghai)
+├── guardrail/                           # 输入安全
+│   └── SafeInputGuardrail.java          #   敏感词与提示词注入过滤
+├── Monitor/                             # 可观测性子系统
+│   ├── AiModelMonitorListener.java      #   ChatModelListener: onRequest/onResponse/onError
+│   ├── AiModelMetricsCollector.java     #   针对 AI 调用的 Prometheus 计数器与计时器
+│   ├── RagMetricsCollector.java         #   命中/未命中计数器与检索计时器
+│   └── ObservabilityLogger.java         #   用于可观测性的结构化日志
+├── interceptor/                         # HTTP 拦截器
+│   └── ObservabilityInterceptor.java    #   单次请求的监控上下文初始化
+├── controller/                          # REST API 端点
+│   └── AiChatController.java            #   /chat, /streamChat, /multiAgentChat, /insert
+├── job/                                 # 定时任务
+│   ├── RagAutoReloadJob.java            #   每 5 分钟检测文档变更
+│   └── RagDataLoader.java               #   初始 RAG 数据加载
+├── model/dto/                           # 数据传输对象
+│   ├── ChatRequest.java                 #   sessionId + prompt
+│   └── KnowledgeRequest.java            #   question + answer + fileName
+├── common/                              # 共享工具类
+│   ├── BaseResponse.java, ErrorCode.java, ResultUtils.java
+└── Exception/                           # 全局异常处理
+    ├── BusinessException.java, GlobalExceptionHandler.java, ThrowUtils.java
+```
+---
 
-### 2. 智能记忆管理
-- 滑动窗口 + 历史摘要压缩策略
-- Token 消耗降低 60%
-- 自动触发压缩机制
-
-### 3. RAG 检索优化
-- 查询预处理 (停用词过滤)
-- 递归文档切分 (500/150)
-- 粗排 (Top20) + 精排 (Top5)
-- 召回准确率提升 20-30%
-
-### 4. 动态知识更新
-- RagAutoReloadJob 定时扫描
-- RagTool 支持对话式更新
-- 无需重启服务
-
-### 5. 安全防护
-- 输入层 Guardrail (敏感词过滤)
-- 输出层合规性审核
-- Prompt 注入检测
-
-### 6. 工具生态
-- LangChain4j Function Calling
-- MCP 协议标准化集成
-- 自定义工具扩展能力
 
