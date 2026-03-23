@@ -1,4 +1,4 @@
-# ByteCoach（后端面试智能体系统）
+# LangChain4j-agent
 
 ## 项目简介
 
