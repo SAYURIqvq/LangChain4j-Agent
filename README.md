@@ -1,7 +1,5 @@
 # LangChain4j-agent
 
-# LangChain4j-agent
-
 ## 项目概览
 
 基于 **Java + Spring Boot + LangChain4j** 构建的企业级智能 Agent 系统，通过深度整合 **RAG、MCP 协议、分布式记忆与工具调用能力**，构建具备 **感知、记忆、规划、行动** 四大核心能力的智能体。
