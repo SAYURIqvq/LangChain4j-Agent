@@ -472,7 +472,7 @@ TokenCountChatMemoryCompressor.compress()
 
 ---
 
-##项目架构
+## 六、项目架构
 
 ```
 src/main/java/com/shanyangcode/infintechatagent/
@@ -529,7 +529,7 @@ src/main/java/com/shanyangcode/infintechatagent/
 ```
 ---
 
-## 项目搭建与依赖配置
+## 七、项目搭建与依赖配置
 
 查看链接：https://zread.ai/SAYURIqvq/LangChain4j-Agent/2-project-setup-and-dependencies
 
